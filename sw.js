@@ -5,19 +5,19 @@
 
 const CACHE_NAME    = 'second-brain-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/css/main.css',
-  '/css/animations.css',
-  '/js/db.js',
-  '/js/nlp.js',
-  '/js/ai.js',
-  '/js/voice.js',
-  '/js/notifications.js',
-  '/js/tasks.js',
-  '/js/ui.js',
-  '/js/app.js',
+  './',
+  'index.html',
+  'manifest.json',
+  'css/main.css',
+  'css/animations.css',
+  'js/db.js',
+  'js/nlp.js',
+  'js/ai.js',
+  'js/voice.js',
+  'js/notifications.js',
+  'js/tasks.js',
+  'js/ui.js',
+  'js/app.js',
 ];
 
 /* ---- Install — pre-cache shell ---- */
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Offline fallback
         if (event.request.headers.get('Accept')?.includes('text/html')) {
-          return caches.match('/index.html');
+          return caches.match('index.html');
         }
       });
     })
@@ -69,8 +69,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Second Brain AI', {
       body:    data.body || 'You have a task reminder.',
-      icon:    '/icons/icon-192.png',
-      badge:   '/icons/icon-192.png',
+      icon:    'icons/icon-192.png',
+      badge:   'icons/icon-192.png',
       tag:     data.tag || 'secondbrain',
       renotify: true,
       requireInteraction: true,
@@ -99,7 +99,7 @@ self.addEventListener('notificationclick', (event) => {
         clients[0].postMessage(msg);
         clients[0].focus();
       } else {
-        self.clients.openWindow('/').then(client => {
+        self.clients.openWindow('./').then(client => {
           if (client) client.postMessage(msg);
         });
       }

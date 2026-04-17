@@ -2,7 +2,7 @@
   "name": "Second Brain AI",
   "short_name": "Brain AI",
   "description": "Your external brain — capture tasks, get aggressive reminders, and never forget again.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0f",
@@ -27,7 +27,7 @@
       "name": "Add Task",
       "short_name": "Add",
       "description": "Quickly add a new task",
-      "url": "/?action=add",
+      "url": "./?action=add",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
