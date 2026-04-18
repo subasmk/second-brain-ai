@@ -54,8 +54,8 @@
   <!-- ============ MAIN VIEWS ============ -->
   <main id="app-main">
 
-    <!-- ===== DASHBOARD VIEW ===== -->
-    <div id="view-dashboard" class="view active">
+    <!-- ===== TASKS VIEW (formerly Dashboard) ===== -->
+    <div id="view-tasks" class="view active">
 
       <!-- Stats Bar -->
       <div class="stats-bar">
@@ -104,6 +104,32 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- ===== NOTES VIEW ===== -->
+    <div id="view-notes" class="view">
+      <!-- Notes Filter Bar -->
+      <div class="notes-filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="favorites">⭐ Favorites</button>
+        <button class="filter-btn" data-filter="tagged">Tags</button>
+        <button class="filter-btn" data-filter="linked">🔗 Linked</button>
+      </div>
+
+      <!-- Section Header -->
+      <div class="section-header">
+        <span class="section-title">📝 My Notes</span>
+        <span class="section-count" id="notes-count">0</span>
+      </div>
+
+      <!-- Notes List -->
+      <div class="notes-list" id="notes-list-main">
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <h3>No notes yet</h3>
+          <p>Create your first note to start building your second brain</p>
+        </div>
+      </div>
     </div>
 
     <!-- ===== GROWTH VIEW ===== -->
@@ -214,14 +240,19 @@
   </main>
 
   <!-- ============ FAB ============ -->
-  <button id="fab-add" aria-label="Add task">＋</button>
+  <button id="fab-add" aria-label="Create note or task" title="Add note or task">＋</button>
 
   <!-- ============ BOTTOM NAV ============ -->
   <nav id="bottom-nav" role="navigation" aria-label="Main navigation">
-    <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Home</span>
-      <span class="nav-badge" id="nav-badge" style="display:none;">0</span>
+    <button class="nav-item active" data-view="tasks" id="nav-tasks">
+      <span class="nav-icon">✓</span>
+      <span class="nav-label">Tasks</span>
+      <span class="nav-badge task-badge" style="display:none;">0</span>
+    </button>
+    <button class="nav-item" data-view="notes" id="nav-notes">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Notes</span>
+      <span class="nav-badge notes-badge" style="display:none;">0</span>
     </button>
     <button class="nav-item" data-view="growth" id="nav-growth">
       <span class="nav-icon">📈</span>
@@ -236,6 +267,37 @@
 </div><!-- #app -->
 
 <!-- ============ MODALS ============ -->
+
+<!-- SMART CREATION MODAL -->
+<div class="modal-overlay" id="modal-create-choice" role="dialog" aria-modal="true" aria-label="Choose what to create">
+  <div class="modal-sheet modal-choice-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" data-close-modal aria-label="Close">✕</button>
+    <div class="modal-title">🧠 What's On Your Mind?</div>
+    
+    <div class="create-choice-grid">
+      <!-- Create Task/Remainder -->
+      <button class="create-choice-card" id="choice-task" data-type="task">
+        <div class="choice-icon">✓</div>
+        <div class="choice-title">Task / Reminder</div>
+        <div class="choice-desc">Action items & due dates</div>
+        <div class="choice-emoji">⚡</div>
+      </button>
+
+      <!-- Create Note -->
+      <button class="create-choice-card" id="choice-note" data-type="note">
+        <div class="choice-icon">📝</div>
+        <div class="choice-title">Note</div>
+        <div class="choice-desc">Thoughts, ideas, knowledge</div>
+        <div class="choice-emoji">💡</div>
+      </button>
+    </div>
+
+    <div style="padding: 16px; text-align: center; color: var(--text-tertiary); font-size: 0.8rem;">
+      <p>💡 Tip: Use Tasks for what to do, Notes for what you know</p>
+    </div>
+  </div>
+</div>
 
 <!-- ADD TASK MODAL -->
 <div class="modal-overlay" id="modal-add-task" role="dialog" aria-modal="true" aria-label="Add new task">
@@ -266,9 +328,35 @@
       </div>
     </div>
 
-    <div class="input-group">
-      <label class="input-label" for="add-task-notes">Extra Notes</label>
-      <textarea class="input-field" id="add-task-notes" placeholder="Any extra details..." rows="2"></textarea>
+    <!-- Notes Section with Categories -->
+    <div class="notes-section">
+      <div class="notes-header">
+        <span class="notes-title">📝 Task Notes</span>
+        <span class="notes-toggle" id="notes-toggle">▼</span>
+      </div>
+      <div class="notes-container" id="notes-container">
+        <div class="input-group">
+          <label class="input-label note-label" for="add-task-notes">
+            <span class="note-icon">💭</span> Quick Notes
+          </label>
+          <textarea class="input-field notes-field" id="add-task-notes" placeholder="Fast thoughts, quick reminders..." rows="2" maxlength="500"></textarea>
+          <div class="charcount"><span id="add-notes-count">0</span>/500</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label note-label" for="add-task-reminders">
+            <span class="note-icon">⚡</span> Important Reminders
+          </label>
+          <textarea class="input-field notes-field" id="add-task-reminders" placeholder="Critical points you must remember..." rows="2" maxlength="300"></textarea>
+          <div class="charcount"><span id="add-reminders-count">0</span>/300</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label note-label" for="add-task-ideas">
+            <span class="note-icon">✨</span> Ideas & Insights
+          </label>
+          <textarea class="input-field notes-field" id="add-task-ideas" placeholder="Brilliant ideas, insights, solutions..." rows="2" maxlength="300"></textarea>
+          <div class="charcount"><span id="add-ideas-count">0</span>/300</div>
+        </div>
+      </div>
     </div>
 
     <!-- Quick date picks -->
@@ -359,6 +447,66 @@
   </div>
 </div>
 
+<!-- ADD NOTE MODAL -->
+<div class="modal-overlay" id="modal-add-note" role="dialog" aria-modal="true" aria-label="Add new note">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" data-close-modal aria-label="Close">✕</button>
+    <div class="modal-title">📝 New Note</div>
+
+    <!-- Note Title -->
+    <div class="input-group">
+      <label class="input-label" for="add-note-title">Note Title</label>
+      <input type="text" class="input-field" id="add-note-title" placeholder="Give your note a title..." autocomplete="off">
+    </div>
+
+    <!-- Note Content -->
+    <div class="input-group">
+      <label class="input-label" for="add-note-content">Content</label>
+      <textarea class="input-field input-field-large" id="add-note-content" placeholder="Write your thoughts, ideas, knowledge..." rows="6"></textarea>
+    </div>
+
+    <!-- Note Features Row -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div class="input-group" style="margin-bottom:0;">
+        <label class="input-label">Add Todo</label>
+        <button class="btn btn-secondary btn-sm btn-full" id="btn-add-todo-item" style="width:100%;">
+          ➕ Add Item
+        </button>
+      </div>
+      <div class="input-group" style="margin-bottom:0;">
+        <label class="input-label">Add Link</label>
+        <button class="btn btn-secondary btn-sm btn-full" id="btn-add-link-item" style="width:100%;">
+          🔗 Add Link
+        </button>
+      </div>
+    </div>
+
+    <!-- Todo List Preview -->
+    <div id="note-todos-section" style="display:none; margin-bottom:16px;">
+      <div class="input-label">Todos in this note:</div>
+      <div class="note-todos-list" id="note-todos-list"></div>
+    </div>
+
+    <!-- Links Preview -->
+    <div id="note-links-section" style="display:none; margin-bottom:16px;">
+      <div class="input-label">Links in this note:</div>
+      <div class="note-links-list" id="note-links-list"></div>
+    </div>
+
+    <!-- Tags/Category -->
+    <div class="input-group">
+      <label class="input-label">Tags (optional)</label>
+      <input type="text" class="input-field" id="add-note-tags" placeholder="e.g. work, idea, learning (comma separated)">
+    </div>
+
+    <!-- Submit -->
+    <button class="btn btn-primary btn-full" id="btn-add-note-submit">
+      💾 Save Note
+    </button>
+  </div>
+</div>
+
 <!-- TASK DETAIL MODAL -->
 <div class="modal-overlay" id="modal-task-detail" role="dialog" aria-modal="true" aria-label="Task detail">
   <div class="modal-sheet">
@@ -410,9 +558,35 @@
       <input type="text" class="input-field" id="edit-task-title" placeholder="Task title" autocomplete="off">
     </div>
 
-    <div class="input-group">
-      <label class="input-label" for="edit-task-notes">Extra Notes</label>
-      <textarea class="input-field" id="edit-task-notes" placeholder="Add details..." rows="3"></textarea>
+    <!-- Notes Section with Categories -->
+    <div class="notes-section">
+      <div class="notes-header">
+        <span class="notes-title">📝 Task Notes</span>
+        <span class="notes-toggle" id="notes-toggle-edit">▼</span>
+      </div>
+      <div class="notes-container" id="notes-container-edit">
+        <div class="input-group">
+          <label class="input-label note-label" for="edit-task-notes">
+            <span class="note-icon">💭</span> Quick Notes
+          </label>
+          <textarea class="input-field notes-field" id="edit-task-notes" placeholder="Fast thoughts, quick reminders..." rows="2" maxlength="500"></textarea>
+          <div class="charcount"><span id="edit-notes-count">0</span>/500</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label note-label" for="edit-task-reminders">
+            <span class="note-icon">⚡</span> Important Reminders
+          </label>
+          <textarea class="input-field notes-field" id="edit-task-reminders" placeholder="Critical points you must remember..." rows="2" maxlength="300"></textarea>
+          <div class="charcount"><span id="edit-reminders-count">0</span>/300</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label note-label" for="edit-task-ideas">
+            <span class="note-icon">✨</span> Ideas & Insights
+          </label>
+          <textarea class="input-field notes-field" id="edit-task-ideas" placeholder="Brilliant ideas, insights, solutions..." rows="2" maxlength="300"></textarea>
+          <div class="charcount"><span id="edit-ideas-count">0</span>/300</div>
+        </div>
+      </div>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">

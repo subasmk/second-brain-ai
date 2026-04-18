@@ -3,8 +3,9 @@
    ========================================== */
 
 const DB_NAME    = 'SecondBrainAI';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const TASKS_STORE    = 'tasks';
+const NOTES_STORE    = 'notes';
 const SETTINGS_STORE = 'settings';
 
 let _db = null;
@@ -24,6 +25,13 @@ function openDB() {
         taskStore.createIndex('dueDate',   'dueDate',   { unique: false });
         taskStore.createIndex('priority',  'priority',  { unique: false });
         taskStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+
+      // Notes store
+      if (!db.objectStoreNames.contains(NOTES_STORE)) {
+        const noteStore = db.createObjectStore(NOTES_STORE, { keyPath: 'id', autoIncrement: true });
+        noteStore.createIndex('createdAt', 'createdAt', { unique: false });
+        noteStore.createIndex('favorite',  'favorite',  { unique: false });
       }
 
       // Settings store
@@ -52,7 +60,10 @@ async function addTask(task) {
       status:       'pending',                  // pending | completed
       snoozeCount:  0,
       pauseRemind:  false,
-      notes:        task.notes       || '',
+      notes:        task.notes       || '',     // Legacy quick notes field
+      quickNotes:   task.quickNotes  || '',     // Fast thoughts
+      reminders:    task.reminders   || '',     // Important reminders
+      ideas:        task.ideas       || '',     // Ideas & insights
       tags:         task.tags        || [],
       aiGenerated:  task.aiGenerated || false,
       createdAt:    new Date().toISOString(),
@@ -119,6 +130,68 @@ async function snoozeTask(id, minutes) {
   task.notifyAt         = snoozeUntil.toISOString();
   task.snoozeCount      = (task.snoozeCount || 0) + 1;
   return updateTask(task);
+}
+
+/* ---------- NOTES ---------- */
+
+async function addNote(note) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(NOTES_STORE, 'readwrite');
+    const req = tx.objectStore(NOTES_STORE).add({
+      title:     note.title || '',
+      content:   note.content || '',
+      todos:     note.todos || [],
+      links:     note.links || [],
+      tags:      note.tags || [],
+      favorite:  note.favorite || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+async function getNotes() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(NOTES_STORE, 'readonly');
+    const req = tx.objectStore(NOTES_STORE).getAll();
+    req.onsuccess = (e) => resolve((e.target.result || []).reverse());
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+async function getNoteById(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(NOTES_STORE, 'readonly');
+    const req = tx.objectStore(NOTES_STORE).get(id);
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+async function updateNote(note) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    note.updatedAt = new Date().toISOString();
+    const tx  = db.transaction(NOTES_STORE, 'readwrite');
+    const req = tx.objectStore(NOTES_STORE).put(note);
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+async function deleteNote(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(NOTES_STORE, 'readwrite');
+    const req = tx.objectStore(NOTES_STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror   = (e) => reject(e.target.error);
+  });
 }
 
 /* ---------- SETTINGS ---------- */

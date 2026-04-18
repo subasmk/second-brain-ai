@@ -48,6 +48,61 @@
   50%       { box-shadow: 0 4px 36px rgba(124,77,255,0.65), 0 8px 40px rgba(0,0,0,0.6); }
 }
 
+/* ---- Notes Section Glow ---- */
+@keyframes notes-glow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(124,77,255,0.15), inset 0 1px 0 rgba(255,255,255,0.1); }
+  50%      { box-shadow: 0 4px 30px rgba(124,77,255,0.25), inset 0 1px 0 rgba(255,255,255,0.15); }
+}
+
+/* ---- Field Focus Shimmer ---- */
+@keyframes field-focus {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+/* ---- Note Badge Pop ---- */
+@keyframes badge-pop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ---- Icon Bounce ---- */
+@keyframes icon-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* ---- Success Checkmark ---- */
+@keyframes checkmark-draw {
+  0%   { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ---- Slide Up ---- */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Glow Pulse ---- */
+@keyframes glow-pulse {
+  0%, 100% { text-shadow: 0 0 10px rgba(124,77,255,0.5); }
+  50%      { text-shadow: 0 0 20px rgba(124,77,255,0.8); }
+}
+
+/* Focus Mode Slide Down */
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+/* High Priority Pulse */
+@keyframes pulse-high {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0.4); }
+  50%      { box-shadow: 0 0 0 10px rgba(255,71,87,0); }
+}
+
 #fab-add { animation: fab-pulse 3s ease-in-out infinite; }
 
 /* ---- Task card slide in ---- */

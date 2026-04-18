@@ -5,13 +5,17 @@
 /* ---- State ---- */
 const AppState = {
   currentTab:    'today',
-  currentView:   'dashboard',
+  currentView:   'tasks',
   tasks:         [],
+  notes:         [],
   categorized:   { overdue: [], today: [], upcoming: [], noDate: [], completed: [] },
   editingTaskId: null,
   selectedPriority: 'medium',
   parsedNlp:     {},
   voiceActive:   false,
+  currentNoteData: { todos: [], links: [] },
+  focusModeActive: false,
+  currentFocusTask: null,
 };
 
 /* ---- Init ---- */
@@ -43,7 +47,7 @@ async function initApp() {
 
   // Check for URL action (e.g. ?action=add from shortcut)
   if (new URLSearchParams(location.search).get('action') === 'add') {
-    openAddTaskModal();
+    openCreateChoice();
   }
 }
 
@@ -125,6 +129,12 @@ function openAddTaskModal(prefill = '') {
   document.getElementById('add-task-date').value = '';
   document.getElementById('add-task-time').value = '';
 
+  // Expand notes section
+  const notesSection = document.getElementById('notes-container')?.closest('.notes-section');
+  if (notesSection) {
+    notesSection.classList.remove('collapsed');
+  }
+
   openModal('modal-add-task');
   setTimeout(() => input.focus(), 300);
 }
@@ -132,6 +142,12 @@ function openAddTaskModal(prefill = '') {
 function closeAddTaskModal() {
   closeModal('modal-add-task');
   document.getElementById('add-task-input').value = '';
+  document.getElementById('add-task-notes').value = '';
+  document.getElementById('add-task-reminders').value = '';
+  document.getElementById('add-task-ideas').value = '';
+  document.getElementById('add-notes-count').textContent = '0';
+  document.getElementById('add-reminders-count').textContent = '0';
+  document.getElementById('add-ideas-count').textContent = '0';
   document.getElementById('nlp-preview').classList.remove('visible');
   if (AppState.voiceActive) { stopVoiceInput(); setVoiceBtnState(false); }
 }
@@ -141,6 +157,8 @@ async function submitAddTask() {
   const dateEl   = document.getElementById('add-task-date');
   const timeEl   = document.getElementById('add-task-time');
   const notesEl  = document.getElementById('add-task-notes');
+  const remindersEl = document.getElementById('add-task-reminders');
+  const ideasEl  = document.getElementById('add-task-ideas');
   const rawText  = input.value.trim();
 
   if (!rawText) {
@@ -155,6 +173,9 @@ async function submitAddTask() {
     dueDate:  dateEl.value || undefined,
     dueTime:  timeEl.value || undefined,
     notes:    notesEl.value.trim(),
+    quickNotes:   notesEl.value.trim(),
+    reminders:    remindersEl.value.trim(),
+    ideas:        ideasEl.value.trim(),
   };
 
   const task = await createTaskFromInput(rawText, overrides);
@@ -162,6 +183,11 @@ async function submitAddTask() {
 
   closeAddTaskModal();
   showToast(`Task added! ${task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}`, 'success');
+
+  // Activate focus mode for high-priority tasks
+  if (task.priority === 'high') {
+    setTimeout(() => activateFocusMode(task), 500);
+  }
 
   // Speak confirmation if voice was used
   if (AppState.voiceActive || rawText.length > 5) {
@@ -332,11 +358,21 @@ async function openEditModal(taskId, focusDate = false) {
   const modal    = document.getElementById('modal-edit-task');
   const titleEl  = document.getElementById('edit-task-title');
   const notesEl  = document.getElementById('edit-task-notes');
+  const remindersEl = document.getElementById('edit-task-reminders');
+  const ideasEl = document.getElementById('edit-task-ideas');
   const dateEl   = document.getElementById('edit-task-date');
   const timeEl   = document.getElementById('edit-task-time');
 
   titleEl.value = task.title;
-  notesEl.value = task.notes || '';
+  notesEl.value = task.quickNotes || task.notes || '';
+  remindersEl.value = task.reminders || '';
+  ideasEl.value = task.ideas || '';
+  
+  // Update character counts
+  document.getElementById('edit-notes-count').textContent = notesEl.value.length;
+  document.getElementById('edit-reminders-count').textContent = remindersEl.value.length;
+  document.getElementById('edit-ideas-count').textContent = ideasEl.value.length;
+  
   dateEl.value  = task.dueDate     || '';
   timeEl.value  = task.dueTime     || '';
 
@@ -359,6 +395,8 @@ async function submitEditTask() {
   const taskId  = AppState.editingTaskId;
   const titleEl = document.getElementById('edit-task-title');
   const notesEl = document.getElementById('edit-task-notes');
+  const remindersEl = document.getElementById('edit-task-reminders');
+  const ideasEl = document.getElementById('edit-task-ideas');
   const dateEl  = document.getElementById('edit-task-date');
   const timeEl  = document.getElementById('edit-task-time');
 
@@ -371,6 +409,9 @@ async function submitEditTask() {
   await editAndSaveTask(taskId, {
     title:       titleEl.value.trim(),
     notes:       notesEl.value.trim(),
+    quickNotes:  notesEl.value.trim(),
+    reminders:   remindersEl.value.trim(),
+    ideas:       ideasEl.value.trim(),
     dueDate:     dateEl.value || null,
     dueTime:     timeEl.value || null,
     priority:    AppState.selectedPriority,
@@ -427,6 +468,45 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 
+/* ---- Create Choice Modal ---- */
+function openCreateChoice() {
+  openModal('modal-create-choice');
+  
+  // Set up choice buttons
+  document.getElementById('choice-task')?.addEventListener('click', () => {
+    closeModal('modal-create-choice');
+    openAddTaskModal();
+  });
+  
+  document.getElementById('choice-note')?.addEventListener('click', () => {
+    closeModal('modal-create-choice');
+    openAddNoteModal();
+  });
+}
+
+function openAddNoteModal() {
+  const modal = document.getElementById('modal-add-note');
+  if (!modal) return;
+  
+  // Reset form
+  document.getElementById('add-note-title').value = '';
+  document.getElementById('add-note-content').value = '';
+  document.getElementById('add-note-tags').value = '';
+  document.getElementById('note-todos-list').innerHTML = '';
+  document.getElementById('note-links-list').innerHTML = '';
+  document.getElementById('note-todos-section').style.display = 'none';
+  document.getElementById('note-links-section').style.display = 'none';
+  
+  AppState.currentNoteData = { todos: [], links: [] };
+  openModal('modal-add-note');
+  document.getElementById('add-note-title').focus();
+}
+
+function closeAddNoteModal() {
+  closeModal('modal-add-note');
+  AppState.currentNoteData = { todos: [], links: [] };
+}
+
 /* ======================================================
    VIEW SWITCHING
    ====================================================== */
@@ -436,8 +516,263 @@ function switchView(view) {
   document.getElementById(`view-${view}`)?.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
 
-  if (view === 'dashboard') refreshDashboard();
+  if (view === 'tasks') refreshDashboard();
+  if (view === 'notes') renderNotes();
   if (view === 'growth') renderGrowthCalendar();
+}
+
+/* ======================================================
+   NOTES MANAGEMENT
+   ====================================================== */
+async function renderNotes() {
+  const notesList = document.getElementById('notes-list-main');
+  if (!notesList) return;
+  
+  AppState.notes = await getNotes();
+  const notes = AppState.notes;
+  
+  // Update count
+  const countEl = document.getElementById('notes-count');
+  if (countEl) countEl.textContent = notes.length;
+  
+  if (notes.length === 0) {
+    notesList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <h3>No notes yet</h3>
+        <p>Create your first note to start building your second brain</p>
+      </div>
+    `;
+    return;
+  }
+  
+  notesList.innerHTML = '';
+  notes.forEach(note => {
+    const card = renderNoteCard(note);
+    if (card) notesList.appendChild(card);
+  });
+}
+
+function renderNoteCard(note) {
+  const card = document.createElement('div');
+  card.className = `note-card${note.favorite ? ' favorite' : ''}`;
+  card.dataset.noteId = note.id;
+  
+  const preview = note.content.substring(0, 80).replace(/\n/g, ' ') + (note.content.length > 80 ? '...' : '');
+  const tagsHtml = note.tags && note.tags.length > 0
+    ? note.tags.map(tag => `<span class="note-tag">#${escapeHtml(tag)}</span>`).join('')
+    : '';
+  
+  const todoCount = note.todos ? note.todos.filter(t => t.completed).length : 0;
+  const totalTodos = note.todos ? note.todos.length : 0;
+  const todoHtml = totalTodos > 0 ? `<span class="note-todo-count">✓ ${todoCount}/${totalTodos}</span>` : '';
+  
+  const timestamp = new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  card.innerHTML = `
+    <div class="note-header">
+      <div class="note-title">${escapeHtml(note.title)}</div>
+      <button class="note-star" data-note-id="${note.id}" title="Add to favorites">${note.favorite ? '⭐' : '☆'}</button>
+    </div>
+    <div class="note-preview">${escapeHtml(preview)}</div>
+    <div class="note-meta">
+      <span class="note-date">📅 ${timestamp}</span>
+      ${todoHtml}
+      <div class="note-tags">${tagsHtml}</div>
+    </div>
+  `;
+  
+  // Star toggle
+  card.querySelector('.note-star')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    note.favorite = !note.favorite;
+    await updateNote(note);
+    await renderNotes();
+  });
+  
+  // Open note on click
+  card.addEventListener('click', () => showNoteDetail(note.id));
+  
+  return card;
+}
+
+async function showNoteDetail(noteId) {
+  const note = await getNoteById(noteId);
+  if (!note) return;
+  
+  // For now, just show in console - you can implement a detail modal later
+  console.log('Note:', note);
+  // TODO: Create note-detail modal to display full note
+}
+
+async function submitAddNote() {
+  const title = document.getElementById('add-note-title')?.value.trim();
+  const content = document.getElementById('add-note-content')?.value.trim();
+  const tagsInput = document.getElementById('add-note-tags')?.value.trim();
+  
+  if (!title || !content) {
+    showToast('Please add a title and content', 'error');
+    return;
+  }
+  
+  const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+  
+  const note = {
+    title,
+    content,
+    todos: AppState.currentNoteData.todos || [],
+    links: AppState.currentNoteData.links || [],
+    tags,
+    favorite: false,
+  };
+  
+  const noteId = await addNote(note);
+  showToast('Note saved! 📝', 'success');
+  closeAddNoteModal();
+  await renderNotes();
+}
+
+function addTodoToNote() {
+  const todoText = prompt('What todo item?');
+  if (!todoText) return;
+  
+  if (!AppState.currentNoteData.todos) AppState.currentNoteData.todos = [];
+  AppState.currentNoteData.todos.push({ text: todoText, completed: false });
+  
+  renderNoteTodos();
+}
+
+function renderNoteTodos() {
+  const section = document.getElementById('note-todos-section');
+  const list = document.getElementById('note-todos-list');
+  
+  if (!AppState.currentNoteData.todos || AppState.currentNoteData.todos.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  list.innerHTML = '';
+  
+  AppState.currentNoteData.todos.forEach((todo, idx) => {
+    const item = document.createElement('div');
+    item.className = 'note-todo-item';
+    item.innerHTML = `
+      <input type="checkbox" ${todo.completed ? 'checked' : ''}>
+      <input type="text" class="note-todo-text" value="${escapeHtml(todo.text)}" readonly>
+      <button class="note-todo-remove">✕</button>
+    `;
+    
+    item.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+      AppState.currentNoteData.todos[idx].completed = e.target.checked;
+    });
+    
+    item.querySelector('.note-todo-remove').addEventListener('click', () => {
+      AppState.currentNoteData.todos.splice(idx, 1);
+      renderNoteTodos();
+    });
+    
+    list.appendChild(item);
+  });
+}
+
+function addLinkToNote() {
+  const url = prompt('Enter URL:');
+  if (!url) return;
+  
+  const title = prompt('Link title (optional):', url);
+  
+  if (!AppState.currentNoteData.links) AppState.currentNoteData.links = [];
+  AppState.currentNoteData.links.push({ url, title: title || url });
+  
+  renderNoteLinks();
+}
+
+function renderNoteLinks() {
+  const section = document.getElementById('note-links-section');
+  const list = document.getElementById('note-links-list');
+  
+  if (!AppState.currentNoteData.links || AppState.currentNoteData.links.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  list.innerHTML = '';
+  
+  AppState.currentNoteData.links.forEach((link, idx) => {
+    const item = document.createElement('a');
+    item.href = link.url;
+    item.target = '_blank';
+    item.className = 'note-link-item';
+    item.innerHTML = `
+      <span class="note-link-icon">🔗</span>
+      <span class="note-link-text">${escapeHtml(link.title)}</span>
+      <button class="note-link-remove" onclick="event.preventDefault()">✕</button>
+    `;
+    
+    item.querySelector('.note-link-remove').addEventListener('click', () => {
+      AppState.currentNoteData.links.splice(idx, 1);
+      renderNoteLinks();
+    });
+    
+    list.appendChild(item);
+  });
+}
+
+/* ======================================================
+   FOCUS MODE
+   ====================================================== */
+function activateFocusMode(task) {
+  if (task.priority !== 'high') return;
+  
+  AppState.focusModeActive = true;
+  AppState.currentFocusTask = task.id;
+  
+  const banner = document.createElement('div');
+  banner.className = 'focus-mode-banner';
+  banner.id = `focus-mode-${task.id}`;
+  banner.innerHTML = `
+    <div class="focus-title">🎯 FOCUS MODE ACTIVE</div>
+    <div class="focus-text">
+      ${escapeHtml(task.title)} 
+      <span class="focus-time" id="focus-timer">0:00</span>
+    </div>
+    <p style="font-size: 0.75rem; margin-top: 8px; opacity: 0.9;">Don't leave until it's done!</p>
+  `;
+  
+  document.body.insertBefore(banner, document.body.firstChild);
+  
+  // Start timer
+  let seconds = 0;
+  const timerInterval = setInterval(() => {
+    seconds++;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const timerEl = document.getElementById('focus-timer');
+    if (timerEl) {
+      timerEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+  }, 1000);
+  
+  // Store interval ID for cleanup
+  AppState.focusTimerInterval = timerInterval;
+  
+  showToast('Focus Mode Activated! 🎯', 'info', '⚡');
+}
+
+function deactivateFocusMode(taskId) {
+  const banner = document.getElementById(`focus-mode-${taskId}`);
+  if (banner) banner.remove();
+  
+  if (AppState.focusTimerInterval) {
+    clearInterval(AppState.focusTimerInterval);
+  }
+  
+  AppState.focusModeActive = false;
+  AppState.currentFocusTask = null;
+  
+  showToast('Great work! Focus mode ended', 'success', '✅');
 }
 
 /* ======================================================
@@ -540,7 +875,7 @@ function stopFocusMode() {
    ====================================================== */
 function setupEventListeners() {
   /* ---- FAB ---- */
-  document.getElementById('fab-add')?.addEventListener('click', () => openAddTaskModal());
+  document.getElementById('fab-add')?.addEventListener('click', () => openCreateChoice());
 
   /* ---- Tab nav ---- */
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -613,6 +948,11 @@ function setupEventListeners() {
   /* ---- Edit submit ---- */
   document.getElementById('btn-edit-submit')?.addEventListener('click', submitEditTask);
 
+  /* ---- Note modal buttons ---- */
+  document.getElementById('btn-add-note-submit')?.addEventListener('click', submitAddNote);
+  document.getElementById('btn-add-todo-item')?.addEventListener('click', () => addTodoToNote());
+  document.getElementById('btn-add-link-item')?.addEventListener('click', () => addLinkToNote());
+
   /* ---- Priority selectors ---- */
   document.querySelectorAll('.priority-option').forEach(opt => {
     opt.addEventListener('click', () => {
@@ -683,6 +1023,43 @@ function setupEventListeners() {
     if (card) card.style.display = e.target.checked ? 'flex' : 'none';
     await setSetting('motivation', e.target.checked);
   });
+
+  /* ---- Character Counter for Notes Fields ---- */
+  const noteFields = [
+    { id: 'add-task-notes', countId: 'add-notes-count' },
+    { id: 'add-task-reminders', countId: 'add-reminders-count' },
+    { id: 'add-task-ideas', countId: 'add-ideas-count' },
+    { id: 'edit-task-notes', countId: 'edit-notes-count' },
+    { id: 'edit-task-reminders', countId: 'edit-reminders-count' },
+    { id: 'edit-task-ideas', countId: 'edit-ideas-count' },
+  ];
+
+  noteFields.forEach(field => {
+    const el = document.getElementById(field.id);
+    const countEl = document.getElementById(field.countId);
+    if (el && countEl) {
+      el.addEventListener('input', () => {
+        countEl.textContent = el.value.length;
+      });
+    }
+  });
+
+  /* ---- Notes Section Toggle ---- */
+  const notesToggle = document.getElementById('notes-toggle');
+  const notesSection = document.querySelector('.notes-section');
+  if (notesToggle && notesSection) {
+    notesToggle.addEventListener('click', () => {
+      notesSection.classList.toggle('collapsed');
+    });
+  }
+
+  const notesToggleEdit = document.getElementById('notes-toggle-edit');
+  const notesSectionEdit = document.querySelectorAll('.notes-section')[0];
+  if (notesToggleEdit && notesSectionEdit) {
+    notesToggleEdit.addEventListener('click', () => {
+      notesSectionEdit.classList.toggle('collapsed');
+    });
+  }
 
   /* ---- Clear completed ---- */
   document.getElementById('btn-clear-completed')?.addEventListener('click', async () => {

@@ -202,6 +202,11 @@ async function handleCompleteTask(taskId, cardEl) {
 
   await completeTask(taskId);
   cancelNotification(taskId);
+  
+  // Deactivate focus mode if this task was in focus
+  if (window.AppState && window.AppState.currentFocusTask === taskId) {
+    window.deactivateFocusMode(taskId);
+  }
 
   setTimeout(async () => {
     launchConfetti();
