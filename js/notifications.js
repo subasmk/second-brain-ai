@@ -205,3 +205,61 @@ async function snoozeTaskNotif(taskId, minutes) {
   if (task) scheduleNotification(task);
   if (window.__app) window.__app.refreshDashboard();
 }
+
+/* ======================================================
+   FOCUS SYSTEM SPAMMER
+   ====================================================== */
+let _focusInterval = null;
+let _audioCtx = null;
+
+function beep(duration = 200, frequency = 440) {
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+    const oscillator = _audioCtx.createOscillator();
+    const gainNode = _audioCtx.createGain();
+
+    oscillator.type = 'sawtooth';
+    oscillator.frequency.value = frequency;
+
+    oscillator.connect(gainNode);
+    gainNode.connect(_audioCtx.destination);
+
+    gainNode.gain.setValueAtTime(0.1, _audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, _audioCtx.currentTime + duration/1000);
+
+    oscillator.start();
+    setTimeout(() => oscillator.stop(), duration);
+  } catch (e) {
+    console.error("Audio beep failed", e);
+  }
+}
+
+window.startFocusSpam = function(task) {
+  if (_focusInterval) clearInterval(_focusInterval);
+  
+  // Try to beep
+  beep(300, 800); setTimeout(() => beep(500, 600), 300);
+  
+  sendNotification(`FOCUS: ${task.title}`, 'Do not close the app until this is finished!', { tag: 'focus-alert', requireInteraction: true });
+  
+  // Super aggressive check every 15 seconds
+  _focusInterval = setInterval(() => {
+    if (document.hidden) {
+      sendNotification(`⚠️ GET BACK TO WORK!`, `Focus task pending: ${task.title}`, { tag: `focus-spam-${Date.now()}`, requireInteraction: true });
+    } else {
+      beep(100, 400); setTimeout(() => beep(100, 400), 200);
+    }
+  }, 15000); 
+};
+
+window.stopFocusSpam = function() {
+  if (_focusInterval) {
+    clearInterval(_focusInterval);
+    _focusInterval = null;
+  }
+};

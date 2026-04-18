@@ -13,7 +13,7 @@ async function createTaskFromInput(rawText, overrides = {}) {
 
   const taskData = {
     title:       overrides.title || parsed.cleanedText || rawText,
-    description: overrides.description || '',
+    notes:       overrides.notes || '',
     dueDate:     overrides.dueDate || parsed.dueDate,
     dueTime:     overrides.dueTime || parsed.dueTime,
     priority:    priority,

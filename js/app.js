@@ -140,6 +140,7 @@ async function submitAddTask() {
   const input    = document.getElementById('add-task-input');
   const dateEl   = document.getElementById('add-task-date');
   const timeEl   = document.getElementById('add-task-time');
+  const notesEl  = document.getElementById('add-task-notes');
   const rawText  = input.value.trim();
 
   if (!rawText) {
@@ -153,6 +154,7 @@ async function submitAddTask() {
     priority: AppState.selectedPriority,
     dueDate:  dateEl.value || undefined,
     dueTime:  timeEl.value || undefined,
+    notes:    notesEl.value.trim(),
   };
 
   const task = await createTaskFromInput(rawText, overrides);
@@ -262,19 +264,25 @@ async function showTaskDetail(taskId) {
 
   const modal     = document.getElementById('modal-task-detail');
   const titleEl   = document.getElementById('detail-title');
-  const descEl    = document.getElementById('detail-desc');
+  const notesCont = document.getElementById('detail-notes');
+  const notesText = document.getElementById('detail-notes-text');
   const timeEl    = document.getElementById('detail-time');
   const priorityEl= document.getElementById('detail-priority');
   const statusEl  = document.getElementById('detail-status');
   const snoozeEl  = document.getElementById('detail-snooze-count');
   const completeBtn= document.getElementById('detail-complete-btn');
+  const focusBtn   = document.getElementById('detail-focus-btn');
   const snoozeBtn  = document.getElementById('detail-snooze-btn');
   const deleteBtn  = document.getElementById('detail-delete-btn');
   const editBtn    = document.getElementById('detail-edit-btn');
 
   titleEl.textContent    = task.title;
-  descEl.textContent     = task.description || '';
-  descEl.style.display   = task.description ? '' : 'none';
+  if (task.notes) {
+    notesCont.style.display = '';
+    notesText.textContent = task.notes;
+  } else {
+    notesCont.style.display = 'none';
+  }
   timeEl.textContent     = formatDueDateTime(task.dueDate, task.dueTime) || 'No due date';
   priorityEl.textContent = `${priorityEmoji(task.priority)} ${task.priority} priority`;
   priorityEl.className   = `badge badge-${task.priority}`;
@@ -290,6 +298,11 @@ async function showTaskDetail(taskId) {
     closeModal('modal-task-detail');
     const card = document.querySelector(`[data-task-id="${taskId}"]`);
     await handleCompleteTask(taskId, card);
+  };
+
+  focusBtn.onclick = () => {
+    closeModal('modal-task-detail');
+    startFocusMode(task);
   };
 
   snoozeBtn.onclick  = () => { closeModal('modal-task-detail'); openSnoozeModal(taskId); };
@@ -318,12 +331,12 @@ async function openEditModal(taskId, focusDate = false) {
 
   const modal    = document.getElementById('modal-edit-task');
   const titleEl  = document.getElementById('edit-task-title');
-  const descEl   = document.getElementById('edit-task-desc');
+  const notesEl  = document.getElementById('edit-task-notes');
   const dateEl   = document.getElementById('edit-task-date');
   const timeEl   = document.getElementById('edit-task-time');
 
   titleEl.value = task.title;
-  descEl.value  = task.description || '';
+  notesEl.value = task.notes || '';
   dateEl.value  = task.dueDate     || '';
   timeEl.value  = task.dueTime     || '';
 
@@ -345,7 +358,7 @@ async function openEditModal(taskId, focusDate = false) {
 async function submitEditTask() {
   const taskId  = AppState.editingTaskId;
   const titleEl = document.getElementById('edit-task-title');
-  const descEl  = document.getElementById('edit-task-desc');
+  const notesEl = document.getElementById('edit-task-notes');
   const dateEl  = document.getElementById('edit-task-date');
   const timeEl  = document.getElementById('edit-task-time');
 
@@ -357,7 +370,7 @@ async function submitEditTask() {
 
   await editAndSaveTask(taskId, {
     title:       titleEl.value.trim(),
-    description: descEl.value.trim(),
+    notes:       notesEl.value.trim(),
     dueDate:     dateEl.value || null,
     dueTime:     timeEl.value || null,
     priority:    AppState.selectedPriority,
@@ -424,6 +437,102 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
 
   if (view === 'dashboard') refreshDashboard();
+  if (view === 'growth') renderGrowthCalendar();
+}
+
+/* ======================================================
+   GROWTH CALENDAR
+   ====================================================== */
+async function renderGrowthCalendar() {
+  const completed = await getCompletedTasks();
+  
+  // Calculate Streak & Totals
+  const now = new Date();
+  const todayStr = toDateStr(now);
+  let streak = 0;
+  
+  const completedDates = new Set(completed.map(t => typeof t.completedAt === 'string' ? t.completedAt.split('T')[0] : ''));
+  
+  let checkDateStr = todayStr;
+  let checkDateObj = new Date(now);
+  while (completedDates.has(checkDateStr)) {
+    streak++;
+    checkDateObj.setDate(checkDateObj.getDate() - 1);
+    checkDateStr = toDateStr(checkDateObj);
+  }
+  
+  document.getElementById('growth-stat-streak').textContent = streak;
+  document.getElementById('growth-stat-total').textContent = completed.length;
+
+  // Render 30-day heatmap grid
+  const grid = document.getElementById('growth-calendar');
+  if (!grid) return;
+  grid.innerHTML = '';
+  
+  // Create last 30 days
+  const days = [];
+  const startDay = new Date(now);
+  startDay.setDate(startDay.getDate() - 29);
+  
+  for(let i = 0; i < 30; i++) {
+    days.push(toDateStr(startDay));
+    startDay.setDate(startDay.getDate() + 1);
+  }
+
+  days.forEach((d) => {
+    const count = completed.filter(t => t.completedAt && t.completedAt.startsWith(d)).length;
+    const cell = document.createElement('div');
+    cell.className = 'calendar-cell';
+    if (count > 0) {
+      if (count <= 2) cell.classList.add('active-1');
+      else if (count <= 4) cell.classList.add('active-2');
+      else cell.classList.add('active-3');
+    }
+    cell.textContent = parseInt(d.split('-')[2]); // Just day number
+    grid.appendChild(cell);
+  });
+}
+
+/* ======================================================
+   FOCUS MODE
+   ====================================================== */
+let focusTaskActive = null;
+
+function startFocusMode(task) {
+  focusTaskActive = task;
+  const overlay = document.getElementById('focus-mode-overlay');
+  
+  document.getElementById('focus-task-title').textContent = task.title;
+  document.getElementById('focus-task-notes').textContent = task.notes || '';
+  
+  const completeBtn = document.getElementById('focus-complete-btn');
+  completeBtn.onclick = async () => {
+    await completeTask(task.id);
+    stopFocusMode();
+    showToast('Focus task crushed! 🔥', 'success');
+    launchConfetti();
+    refreshDashboard();
+  };
+  
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  
+  // Call notification system to start spamming
+  if (window.startFocusSpam) {
+    window.startFocusSpam(task);
+  }
+}
+
+function stopFocusMode() {
+  focusTaskActive = null;
+  const overlay = document.getElementById('focus-mode-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  if (window.stopFocusSpam) {
+    window.stopFocusSpam();
+  }
 }
 
 /* ======================================================

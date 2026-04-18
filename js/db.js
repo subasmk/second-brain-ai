@@ -52,6 +52,7 @@ async function addTask(task) {
       status:       'pending',                  // pending | completed
       snoozeCount:  0,
       pauseRemind:  false,
+      notes:        task.notes       || '',
       tags:         task.tags        || [],
       aiGenerated:  task.aiGenerated || false,
       createdAt:    new Date().toISOString(),
