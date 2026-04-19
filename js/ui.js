@@ -200,8 +200,27 @@ function hideContextMenu() {
 async function handleCompleteTask(taskId, cardEl) {
   if (cardEl) cardEl.classList.add('completing');
 
+  const task = await getTaskById(taskId);
   await completeTask(taskId);
   cancelNotification(taskId);
+  
+  // Award XP based on priority
+  let xpReward = 10; // Base XP
+  if (task && task.priority === 'high') xpReward = 30;
+  else if (task && task.priority === 'medium') xpReward = 20;
+  
+  if (window.__app && window.__app.addXP) {
+    await window.__app.addXP(xpReward);
+  }
+
+  // Track completed tasks for achievements
+  const completedTasks = (await DB.getSetting('completedTasks')) || 0;
+  await DB.setSetting('completedTasks', completedTasks + 1);
+  
+  // Track high priority completions
+  if (task && task.priority === 'high') {
+    await DB.setSetting('completedHighPriority', true);
+  }
   
   // Deactivate focus mode if this task was in focus
   if (window.AppState && window.AppState.currentFocusTask === taskId) {

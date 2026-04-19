@@ -43,13 +43,66 @@
   <!-- ============ HEADER ============ -->
   <header id="app-header">
     <div class="header-left">
-      <div class="greeting" id="greeting-text">Good evening</div>
-      <div class="app-title">🧠 Second Brain</div>
+      <div class="greeting" id="greeting-text">🎮 LEVEL UP YOUR BRAIN</div>
+      <div class="app-title">🧠 Second Brain AI</div>
     </div>
     <div class="header-right">
+      <div class="player-stats">
+        <div class="player-xp">
+          <span class="xp-label">⚡XP</span>
+          <span class="xp-value" id="player-xp">0</span>
+        </div>
+        <div class="player-level">
+          <span class="level-label">LVL</span>
+          <span class="level-value" id="player-level">1</span>
+        </div>
+      </div>
       <div id="brain-status" class="streak-badge">✨ All Clear</div>
     </div>
   </header>
+
+  <!-- ============ GAME PROFILE CARD ============ -->
+  <div class="game-profile-card">
+    <div class="profile-header">
+      <div class="profile-avatar">🧠</div>
+      <div class="profile-info">
+        <div class="profile-name">Brain Master</div>
+        <div class="profile-subtitle">Second Brain AI Player</div>
+      </div>
+      <div class="profile-streak">
+        <div class="streak-number" id="member-streak">0</div>
+        <div class="streak-label">Day Streak 🔥</div>
+      </div>
+    </div>
+    
+    <div class="profile-progress">
+      <div class="progress-row">
+        <span class="progress-label">Level Progress</span>
+        <span class="progress-percent" id="level-percent">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="level-progress"></div>
+      </div>
+    </div>
+
+    <div class="profile-achievements">
+      <div class="achievement-title">🏆 Achievements Unlocked</div>
+      <div class="achievement-list" id="achievement-list">
+        <div class="achievement-item locked" title="Complete your first task">
+          <span class="achievement-icon">⭐</span>
+        </div>
+        <div class="achievement-item locked" title="Complete 5 tasks">
+          <span class="achievement-icon">🔥</span>
+        </div>
+        <div class="achievement-item locked" title="7 day streak">
+          <span class="achievement-icon">💎</span>
+        </div>
+        <div class="achievement-item locked" title="Complete high priority task">
+          <span class="achievement-icon">⚡</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ============ MAIN VIEWS ============ -->
   <main id="app-main">

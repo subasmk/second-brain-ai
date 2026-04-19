@@ -23,6 +23,7 @@ async function initApp() {
   window.__app = {
     refreshDashboard,
     showPostponeAlert,
+    addXP,
   };
 
   // Register Service Worker
@@ -59,6 +60,7 @@ async function refreshDashboard() {
   updateStats(AppState.categorized);
   updateMotivationCard(AppState.categorized);
   updateGreeting();
+  await updatePlayerStats();
 }
 
 /* ---- Tab Switching ---- */
@@ -103,6 +105,113 @@ function updateGreeting() {
     const status = getBrainStatus(AppState.categorized.overdue.length, AppState.categorized.today.length);
     statusEl.textContent = `${status.icon} ${status.text}`;
     statusEl.style.color = status.color;
+  }
+}
+
+/* ======================================================
+   PLAYER STATS & GAMIFICATION
+   ====================================================== */
+
+async function updatePlayerStats() {
+  // Get player stats from settings
+  const playerXP = (await DB.getSetting('playerXP')) || 0;
+  const playerLevel = (await DB.getSetting('playerLevel')) || 1;
+  const dayStreak = (await DB.getSetting('dayStreak')) || 0;
+
+  // Update UI
+  const xpEl = document.getElementById('player-xp');
+  const lvlEl = document.getElementById('player-level');
+  const streakEl = document.getElementById('member-streak');
+  
+  if (xpEl) xpEl.textContent = playerXP;
+  if (lvlEl) lvlEl.textContent = playerLevel;
+  if (streakEl) streakEl.textContent = dayStreak;
+
+  // Update progress bar
+  const xpForNextLevel = playerLevel * 100;
+  const currentLevelXp = (playerLevel - 1) * 100;
+  const xpInLevel = playerXP - currentLevelXp;
+  const progressPercent = Math.min((xpInLevel / 100) * 100, 100);
+  
+  const progressFill = document.getElementById('level-progress');
+  const progressPercVal = document.querySelector('.progress-percent');
+  
+  if (progressFill) {
+    progressFill.style.width = progressPercent + '%';
+  }
+  if (progressPercVal) {
+    progressPercVal.textContent = Math.floor(progressPercent) + '%';
+  }
+
+  // Update achievements
+  updateAchievementDisplay();
+}
+
+async function addXP(amount) {
+  const currentXP = (await DB.getSetting('playerXP')) || 0;
+  const currentLevel = (await DB.getSetting('playerLevel')) || 1;
+  let newXP = currentXP + amount;
+  let newLevel = currentLevel;
+
+  // Level up every 100 XP
+  while (newXP >= newLevel * 100) {
+    newXP -= newLevel * 100;
+    newLevel++;
+    showLevelUpAnimation(newLevel);
+  }
+
+  await DB.setSetting('playerXP', newXP);
+  await DB.setSetting('playerLevel', newLevel);
+  updatePlayerStats();
+
+  // Show XP gain toast
+  showToast(`+${amount} XP 🎉`, 'success');
+}
+
+async function updateAchievementDisplay() {
+  const achievementList = document.getElementById('achievement-list');
+  if (!achievementList) return;
+
+  const completedTasks = (await DB.getSetting('completedTasks')) || 0;
+  const dayStreak = (await DB.getSetting('dayStreak')) || 0;
+  const achievements = achievementList.querySelectorAll('.achievement-item');
+
+  // Achievement 1: Complete first task
+  if (completedTasks >= 1 && achievements[0]) {
+    achievements[0].classList.add('unlocked');
+    achievements[0].title = 'First Step!';
+  }
+
+  // Achievement 2: Complete 5 tasks
+  if (completedTasks >= 5 && achievements[1]) {
+    achievements[1].classList.add('unlocked');
+    achievements[1].title = 'On Fire! (5 tasks)';
+  }
+
+  // Achievement 3: 7 day streak
+  if (dayStreak >= 7 && achievements[2]) {
+    achievements[2].classList.add('unlocked');
+    achievements[2].title = 'Week Warrior! (7 days)';
+  }
+
+  // Achievement 4: Complete high priority task
+  const completedHighPriority = (await DB.getSetting('completedHighPriority')) || false;
+  if (completedHighPriority && achievements[3]) {
+    achievements[3].classList.add('unlocked');
+    achievements[3].title = 'Priority Master!';
+  }
+}
+
+function showLevelUpAnimation(newLevel) {
+  const levelEl = document.getElementById('player-level');
+  if (levelEl) {
+    levelEl.style.animation = 'none';
+    setTimeout(() => {
+      levelEl.style.animation = 'pulse 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      levelEl.textContent = newLevel;
+    }, 10);
+
+    showToast(`🎉 LEVEL UP! You reached Level ${newLevel}!`, 'success');
   }
 }
 
@@ -569,12 +678,29 @@ function renderNoteCard(note) {
   
   const timestamp = new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   
+  // Render todos with checkboxes
+  let todosHtml = '';
+  if (note.todos && note.todos.length > 0) {
+    todosHtml = `
+      <div class="note-todos-list">
+        ${note.todos.map((todo, idx) => `
+          <div class="note-todo-item${todo.completed ? ' completed' : ''}" data-todo-index="${idx}">
+            <input type="checkbox" ${todo.completed ? 'checked' : ''} class="note-todo-checkbox" data-todo-index="${idx}">
+            <span class="note-todo-text">${escapeHtml(todo.text)}</span>
+            <button class="note-todo-remove" data-todo-index="${idx}">×</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
   card.innerHTML = `
     <div class="note-header">
       <div class="note-title">${escapeHtml(note.title)}</div>
       <button class="note-star" data-note-id="${note.id}" title="Add to favorites">${note.favorite ? '⭐' : '☆'}</button>
     </div>
     <div class="note-preview">${escapeHtml(preview)}</div>
+    ${todosHtml ? `<div class="note-section">${todosHtml}</div>` : ''}
     <div class="note-meta">
       <span class="note-date">📅 ${timestamp}</span>
       ${todoHtml}
@@ -589,6 +715,38 @@ function renderNoteCard(note) {
     await updateNote(note);
     await renderNotes();
   });
+
+  // Todo checkbox toggle
+  card.querySelectorAll('.note-todo-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(checkbox.dataset.todoIndex);
+      if (note.todos && note.todos[idx]) {
+        note.todos[idx].completed = checkbox.checked;
+        await updateNote(note);
+        await renderNotes();
+      }
+    });
+  });
+
+  // Todo remove button
+  card.querySelectorAll('.note-todo-remove').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.todoIndex);
+      if (note.todos) {
+        note.todos.splice(idx, 1);
+        await updateNote(note);
+        await renderNotes();
+      }
+    });
+  });
+  
+  // Open note on click
+  card.addEventListener('click', () => showNoteDetail(note.id));
+  
+  return card;
+}
   
   // Open note on click
   card.addEventListener('click', () => showNoteDetail(note.id));
