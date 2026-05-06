@@ -20,6 +20,8 @@ const AppState = {
 
 /* ---- Init ---- */
 async function initApp() {
+  console.log('✅ App initializing...');
+  
   window.__app = {
     refreshDashboard,
     showPostponeAlert,
@@ -39,6 +41,7 @@ async function initApp() {
 
   // Wire up all event listeners
   setupEventListeners();
+  console.log('✅ Event listeners set up');
 
   // Update greeting
   updateGreeting();
@@ -50,6 +53,8 @@ async function initApp() {
   if (new URLSearchParams(location.search).get('action') === 'add') {
     openCreateChoice();
   }
+  
+  console.log('✅ App ready!');
 }
 
 /* ---- Dashboard Refresh ---- */
@@ -219,12 +224,19 @@ function showLevelUpAnimation(newLevel) {
    ADD TASK MODAL
    ====================================================== */
 function openAddTaskModal(prefill = '') {
+  console.log('📝 Opening add task modal');
+  
   AppState.selectedPriority = 'medium';
   AppState.parsedNlp        = {};
 
   const overlay = document.getElementById('modal-add-task');
   const input   = document.getElementById('add-task-input');
   const preview = document.getElementById('nlp-preview');
+
+  if (!overlay || !input || !preview) {
+    console.error('❌ Missing required elements for add task modal', { overlay: !!overlay, input: !!input, preview: !!preview });
+    return;
+  }
 
   input.value           = prefill;
   preview.classList.remove('visible');
@@ -564,10 +576,15 @@ function showPostponeAlert(task) {
    MODALS
    ====================================================== */
 function openModal(id) {
+  console.log(`🔓 Opening modal: ${id}`);
   const overlay = document.getElementById(id);
-  if (!overlay) return;
+  if (!overlay) {
+    console.error(`❌ Modal not found: ${id}`);
+    return;
+  }
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  console.log(`✅ Modal opened: ${id}`);
 }
 
 function closeModal(id) {
@@ -579,18 +596,15 @@ function closeModal(id) {
 
 /* ---- Create Choice Modal ---- */
 function openCreateChoice() {
+  console.log('📋 Opening create choice modal');
+  const modal = document.getElementById('modal-create-choice');
+  console.log('Modal element found:', !!modal, modal?.id);
+  if (!modal) {
+    console.error('❌ CRITICAL: modal-create-choice not found in DOM!');
+    return;
+  }
   openModal('modal-create-choice');
-  
-  // Set up choice buttons
-  document.getElementById('choice-task')?.addEventListener('click', () => {
-    closeModal('modal-create-choice');
-    openAddTaskModal();
-  });
-  
-  document.getElementById('choice-note')?.addEventListener('click', () => {
-    closeModal('modal-create-choice');
-    openAddNoteModal();
-  });
+  console.log('✅ create choice modal opened');
 }
 
 function openAddNoteModal() {
@@ -741,12 +755,6 @@ function renderNoteCard(note) {
       }
     });
   });
-  
-  // Open note on click
-  card.addEventListener('click', () => showNoteDetail(note.id));
-  
-  return card;
-}
   
   // Open note on click
   card.addEventListener('click', () => showNoteDetail(note.id));
@@ -1032,8 +1040,35 @@ function stopFocusMode() {
    EVENT LISTENERS
    ====================================================== */
 function setupEventListeners() {
+  console.log('🔧 Setting up event listeners...');
+  
+  // Debug: check for critical elements
+  const criticalElements = {
+    'fab-add': 'fab-add',
+    'choice-task': 'choice-task',
+    'choice-note': 'choice-note',
+    'modal-create-choice': 'modal-create-choice',
+    'add-task-input': 'add-task-input',
+  };
+  
+  console.log('🔍 Checking for critical DOM elements:');
+  for (const [name, id] of Object.entries(criticalElements)) {
+    const el = document.getElementById(id);
+    console.log(`  [${el ? '✓' : '✗'}] ${name}: ${id}`, el);
+  }
+  
   /* ---- FAB ---- */
-  document.getElementById('fab-add')?.addEventListener('click', () => openCreateChoice());
+  const fabBtn = document.getElementById('fab-add');
+  if (!fabBtn) {
+    console.error('❌ CRITICAL: FAB button (fab-add) not found!');
+  } else {
+    console.log('✓ FAB button found');
+    fabBtn.addEventListener('click', () => {
+      console.log('🎯 FAB clicked - opening create choice modal');
+      openCreateChoice();
+    });
+    console.log('✓ FAB click listener attached');
+  }
 
   /* ---- Tab nav ---- */
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1059,6 +1094,34 @@ function setupEventListeners() {
       if (e.target === overlay) closeModal(overlay.id);
     });
   });
+
+  /* ---- Create Choice Buttons ---- */
+  const choiceTaskBtn = document.getElementById('choice-task');
+  const choiceNoteBtn = document.getElementById('choice-note');
+  
+  if (!choiceTaskBtn) {
+    console.error('❌ choice-task button not found');
+  } else {
+    console.log('✓ choice-task button found');
+    choiceTaskBtn.addEventListener('click', () => {
+      console.log('📋 Task button clicked');
+      closeModal('modal-create-choice');
+      openAddTaskModal();
+    });
+    console.log('✓ choice-task click listener attached');
+  }
+  
+  if (!choiceNoteBtn) {
+    console.error('❌ choice-note button not found');
+  } else {
+    console.log('✓ choice-note button found');
+    choiceNoteBtn.addEventListener('click', () => {
+      console.log('📝 Note button clicked');
+      closeModal('modal-create-choice');
+      openAddNoteModal();
+    });
+    console.log('✓ choice-note click listener attached');
+  }
 
   /* ---- Add Task Input (NLP preview) ---- */
   const addInput = document.getElementById('add-task-input');
@@ -1286,3 +1349,15 @@ function toDateStr(date) {
 
 /* ---- Boot ---- */
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Global error handler
+window.addEventListener('error', (event) => {
+  console.error('❌ JavaScript Error:', event.error);
+  console.error('Message:', event.message);
+  console.error('Source:', event.filename);
+  console.error('Line:', event.lineno);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('❌ Unhandled Promise Rejection:', event.reason);
+});

@@ -227,3 +227,30 @@ async function getCompletedTasks() {
   const tasks = await getTasks();
   return tasks.filter(t => t.status === 'completed');
 }
+
+/* ========== DB NAMESPACE ========== */
+const DB = {
+  // Tasks
+  addTask,
+  getTasks,
+  getTaskById,
+  updateTask,
+  deleteTask,
+  completeTask,
+  snoozeTask,
+  
+  // Notes
+  addNote,
+  getNotes,
+  getNoteById,
+  updateNote,
+  deleteNote,
+  
+  // Settings
+  getSetting,
+  setSetting,
+  
+  // Helpers
+  getPendingTasks,
+  getCompletedTasks,
+};
